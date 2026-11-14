@@ -18,6 +18,7 @@ const timeFormat = new Intl.DateTimeFormat(undefined, {
   year: 'numeric',
   hour: '2-digit',
   minute: '2-digit',
+  hourCycle: 'h23', // 24h: "04:03" must never mean both 4 am and 4 pm
   timeZoneName: 'short',
 });
 
