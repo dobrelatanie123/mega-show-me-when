@@ -5,6 +5,9 @@ const list = document.querySelector('[data-testid="incident-list"]');
 const loader = document.querySelector('[data-testid="loader"]');
 const empty = document.querySelector('[data-testid="empty"]');
 const status = document.querySelector('[data-role="status"]');
+const confirmBox = document.querySelector('[data-testid="confirm"]');
+const confirmAck = document.querySelector('[data-testid="confirm-ack"]');
+const confirmCancel = document.querySelector('[data-testid="confirm-cancel"]');
 
 /** Rows on screen, by incident id. Rows are kept, not rebuilt, so a refresh never wipes an ack or a click. */
 const rows = new Map();
@@ -55,6 +58,30 @@ async function onAck(incidentId, button) {
   }
 }
 
+/** The incident the open confirm names: { id, button }. */
+let pending = null;
+
+/**
+ * Product decision: Ack asks to confirm, and the confirm names the incident id. New incidents still land
+ * live at the top, so a click can hit the row next to the one meant; the confirm shows which one it hit.
+ */
+function askToAck(incidentId, button) {
+  pending = { id: incidentId, button };
+  const row = rows.get(incidentId);
+  for (const n of confirmBox.querySelectorAll('[data-role="confirm-id"]')) n.textContent = incidentId;
+  confirmBox.querySelector('[data-role="confirm-what"]').textContent = row?.querySelector('.what')?.textContent ?? '';
+  confirmBox.showModal();
+}
+
+confirmAck.addEventListener('click', () => {
+  const p = pending;
+  pending = null;
+  confirmBox.close();
+  if (p) onAck(p.id, p.button);
+});
+confirmCancel.addEventListener('click', () => confirmBox.close());
+confirmBox.addEventListener('close', () => (pending = null));
+
 function buildRow(i) {
   const row = el('li', { 'data-testid': 'incident-row', 'data-id': i.id });
   row.append(el('span', { class: 'id' }, i.id), el('span', { class: 'sev' }), el('span', { class: 'what' }), el('time'));
@@ -64,7 +91,7 @@ function buildRow(i) {
     row.append(ackedMark(acked.get(i.id)));
   } else {
     const button = el('button', { type: 'button', 'data-testid': 'ack', class: 'ack' }, 'Ack');
-    button.addEventListener('click', () => onAck(i.id, button));
+    button.addEventListener('click', () => askToAck(i.id, button));
     row.append(button);
   }
   return row;

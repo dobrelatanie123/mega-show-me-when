@@ -52,15 +52,33 @@ for (const [locale, timezoneId, expected] of [
   ok(shown.startsWith(expected), `${locale}: local time "${shown}" starts with "${expected}"`);
   ok((await page.locator('[data-id="INC-2"] b').count()) === 0, `${locale}: summary rendered as text`);
 
+  // Product decision: Ack asks to confirm, naming the incident id.
+  await page.locator('[data-id="INC-2"]').getByTestId('ack').click();
+  ok((await page.getByTestId('confirm').innerText()).includes('INC-2'), `${locale}: confirm names INC-2`);
+  await page.getByTestId('confirm-cancel').click();
+  await page.waitForTimeout(300);
+  ok(acks === 0 && !(await page.getByTestId('confirm').isVisible()), `${locale}: Cancel closes the confirm, no ack sent`);
   await page.locator('[data-id="INC-1"]').getByTestId('ack').click();
+  ok((await page.getByTestId('confirm').innerText()).includes('INC-1'), `${locale}: confirm names INC-1`);
+  await page.getByTestId('confirm-ack').click();
   await page.locator('[data-id="INC-1"]').getByTestId('acked').waitFor();
-  ok(acks === 1, `${locale}: Ack sends one ack`);
+  ok(acks === 1 && !(await page.getByTestId('confirm').isVisible()), `${locale}: confirm-ack sends one ack for INC-1`);
 
   live.unshift({ id: 'INC-3', service: 'payments', region: 'us-east', summary: 'new one', severity: 'sev1', openedAt: '2026-11-12T03:10:00.000Z' });
   await page.locator('[data-id="INC-3"]').waitFor({ timeout: 4000 });
   const order = await page.getByTestId('incident-row').evaluateAll((r) => r.map((x) => x.dataset.id));
   ok(order.join() === 'INC-3,INC-2,INC-1', `${locale}: new incident on top without reload (${order})`);
   ok((await page.locator('[data-id="INC-1"]').getByTestId('acked').count()) === 1, `${locale}: ack mark survives refresh`);
+  await ctx.close();
+}
+// Empty night: loader goes, the empty state shows.
+{
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await page.route('**/challenges/show-me-when/api/incidents**', (route) => route.fulfill({ json: { updatedAt: new Date().toISOString(), incidents: [], cursor: 'c' } }));
+  await page.goto(base);
+  await page.getByTestId('empty').waitFor();
+  ok((await page.getByTestId('loader').count()) === 0, 'empty night: loader gone, empty state shown');
   await ctx.close();
 }
 await browser.close();
