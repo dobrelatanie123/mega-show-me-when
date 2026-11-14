@@ -56,13 +56,9 @@ async function onAck(incidentId, button) {
 }
 
 function buildRow(i) {
-  const row = el('li', { 'data-testid': 'incident-row', 'data-id': i.id, class: `row ${i.severity}` });
-  row.append(
-    el('span', { class: 'id' }, i.id),
-    el('span', { class: 'sev' }, i.severity),
-    el('span', { class: 'what' }, `${i.service} · ${i.region} · ${i.summary}`),
-    el('time', { datetime: i.openedAt, title: i.openedAt }, localTime(i.openedAt)),
-  );
+  const row = el('li', { 'data-testid': 'incident-row', 'data-id': i.id });
+  row.append(el('span', { class: 'id' }, i.id), el('span', { class: 'sev' }), el('span', { class: 'what' }), el('time'));
+  updateRow(row, i);
   if (acked.has(i.id)) {
     row.classList.add('is-acked');
     row.append(ackedMark(acked.get(i.id)));
@@ -72,6 +68,20 @@ function buildRow(i) {
     row.append(button);
   }
   return row;
+}
+
+/** Keeps a row's text current (severity, summary, time) without touching its Ack button. */
+function updateRow(row, i) {
+  row.classList.remove('sev1', 'sev2', 'sev3');
+  row.classList.add('row', i.severity);
+  row.querySelector('.sev').textContent = i.severity;
+  row.querySelector('.what').textContent = `${i.service} · ${i.region} · ${i.summary}`;
+  const time = row.querySelector('time');
+  if (time.getAttribute('datetime') !== i.openedAt) {
+    time.setAttribute('datetime', i.openedAt);
+    time.title = i.openedAt;
+    time.textContent = localTime(i.openedAt);
+  }
 }
 
 /** R1: new incidents go in at the top, newest first; rows already on screen stay as they are. */
@@ -91,6 +101,8 @@ function render(incidents) {
       rows.set(i.id, row);
       row.classList.add('is-new');
       setTimeout(() => row.classList.remove('is-new'), 1500);
+    } else {
+      updateRow(row, i);
     }
     if (row !== next) list.insertBefore(row, next);
     next = row.nextElementSibling;
